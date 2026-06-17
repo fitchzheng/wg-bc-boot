@@ -165,7 +165,8 @@ static void McanInitConfig(void)
 
     FCG_Fcg1PeriphClockCmd(MCAN_PERIPH_CLK, ENABLE);
     (void)MCAN_Init(MCAN_UNIT, &init);
-    MCAN_RxFifoOperationModeConfig(MCAN_UNIT, MCAN_RX_FIFO1, MCAN_RX_FIFO_BLOCKING);
+    MCAN_SetFifoWatermark(MCAN_UNIT, MCAN_WATERMARK_RX_FIFO1, MCAN_RX_FIFO1_WATERMARK);
+    MCAN_RxFifoOperationModeConfig(MCAN_UNIT, MCAN_RX_FIFO1, MCAN_RX_FIFO_OVERWRITE);
 }
 
 void bsp_can_init(void)
@@ -183,6 +184,7 @@ uint8_t bsp_can_tx_ext(uint32_t id, const uint8_t *data)
         .ID = id,
         .IDE = 1U,
         .DLC = MCAN_DLC8,
+        .u32TxBuffer = MCAN_TX_BUF0,
     };
 
     McanRecoverIfNeeded();
@@ -204,6 +206,7 @@ uint8_t bsp_can_tx_ext(uint32_t id, const uint8_t *data)
 uint8_t bsp_can_rx_ext(uint32_t *id, uint8_t *data)
 {
     stc_mcan_rx_msg_t msg = {0};
+    uint8_t scan_count = 0U;
 
     if ((id == NULL) || (data == NULL))
     {
@@ -212,23 +215,21 @@ uint8_t bsp_can_rx_ext(uint32_t *id, uint8_t *data)
 
     McanRecoverIfNeeded();
 
-    if (MCAN_GetStatus(MCAN_UNIT, MCAN_FLAG_RX_FIFO1_NEW_MSG) != SET)
+    while (scan_count < 16U)
     {
-        return 0U;
+        scan_count++;
+        if (MCAN_GetRxMsg(MCAN_UNIT, MCAN_RX_FIFO1, &msg) != LL_OK)
+        {
+            return 0U;
+        }
+
+        if ((msg.IDE == 1U) && (msg.DLC == MCAN_DLC8))
+        {
+            *id = msg.ID;
+            memcpy(data, &msg.au8Data[0], 8U);
+            return 1U;
+        }
     }
 
-    MCAN_ClearStatus(MCAN_UNIT, MCAN_FLAG_RX_FIFO1_NEW_MSG);
-    if (MCAN_GetRxMsg(MCAN_UNIT, MCAN_RX_FIFO1, &msg) != LL_OK)
-    {
-        return 0U;
-    }
-
-    if ((msg.IDE != 1U) || (msg.DLC != MCAN_DLC8))
-    {
-        return 0U;
-    }
-
-    *id = msg.ID;
-    memcpy(data, &msg.au8Data[0], 8U);
-    return 1U;
+    return 0U;
 }

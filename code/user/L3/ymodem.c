@@ -528,8 +528,8 @@ static void boot_jump_to_app(void)
     }
     else
     {
-        // app 不存在，保持在当前（bootloader）
-        ymodem_state = YMODEM_STA_WAIT_DATA;
+        // APP is missing or invalid: stay in BOOT and accept direct CAN OTA.
+        boot_iap_can_prepare_restart();
     }
 }
 
@@ -559,7 +559,9 @@ void ymodem_init(void)
             else
             {
                 ymodem_clear_meta();
-                boot_jump_to_app();
+                ymodem_reset_rx(OUTPUT_USART0);
+                ymodem_reset_rx(OUTPUT_USART2);
+                boot_iap_can_prepare_restart();
             }
             return;
         }
@@ -599,11 +601,9 @@ void ymodem_init(void)
         ymodem_clear_meta();
         ymodem_reset_rx(OUTPUT_USART0);
         ymodem_reset_rx(OUTPUT_USART2);
-        usart_link = 0;
-        updating_flag = 0;
+        boot_iap_can_prepare_restart();
         update_started = 0;
         pending_can_fallback = 0;
-        boot_jump_to_app();
         return;
     }
 
