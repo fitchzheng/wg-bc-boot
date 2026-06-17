@@ -56,6 +56,7 @@ static uint32_t code_size_byte = 0;
 #define IAP_META_STARTED    0x54525453UL
 #define IAP_META_VALID      0x444C4156UL
 #define IAP_META_OFFSET     256U
+#define FACTORY_BACKUP_MAGIC 0x42434647UL
 
 typedef struct
 {
@@ -469,6 +470,14 @@ static uint8_t ymodem_update_page_has_data(void)
     return 0U;
 }
 
+static uint8_t ymodem_update_page_is_factory_backup(void)
+{
+    uint32_t magic = 0xFFFFFFFFUL;
+
+    memcpy(&magic, &page[0], sizeof(magic));
+    return (magic == FACTORY_BACKUP_MAGIC) ? 1U : 0U;
+}
+
 static inline void ymodem_reset_rx(uint8_t rx_com)
 {
     recv_index[rx_com] = 0;
@@ -591,6 +600,16 @@ void ymodem_init(void)
 
     if (ymodem_update_page_has_data() != 0U)
     {
+        if (ymodem_update_page_is_factory_backup() != 0U)
+        {
+            usart_link = 0;
+            updating_flag = 0;
+            update_started = 0;
+            pending_can_fallback = 0;
+            boot_jump_to_app();
+            return;
+        }
+
         if (ymodem_legacy_start_header_is_valid() != 0U)
         {
             ymodem_reset_rx(OUTPUT_USART0);
