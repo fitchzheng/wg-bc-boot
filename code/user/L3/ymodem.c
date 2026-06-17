@@ -446,10 +446,14 @@ static uint8_t ymodem_write_meta_status(uint32_t status)
     return ymodem_verify_flash_page(FLASH_UPDATE, 0, &page[0]);
 }
 
-static void ymodem_clear_meta(void)
+static uint8_t ymodem_clear_meta(void)
 {
     memset(&page, 0xFF, sizeof(page));
-    flash_write(FLASH_UPDATE, 0, (uint16_t *)&page);
+      if (flash_write(FLASH_UPDATE, 0, (uint16_t *)&page) == 0U)
+    {
+        return 0U;
+    }
+    return ymodem_verify_flash_page(FLASH_UPDATE, 0, &page[0]);
 }
 
 static uint8_t ymodem_update_page_has_data(void)
@@ -1098,6 +1102,11 @@ uint8_t boot_iap_can_begin(uint32_t image_size, uint32_t image_crc32)
         (image_size > flash_zone[FLASH_APP].size) ||
         (image_crc32 == 0U) ||
         (image_crc32 == 0xFFFFFFFFUL))
+    {
+        return 0U;
+    }
+	
+   if (ymodem_clear_meta() == 0U)
     {
         return 0U;
     }
