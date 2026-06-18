@@ -56,6 +56,7 @@ static uint32_t code_size_byte = 0;
 #define IAP_META_STARTED    0x54525453UL
 #define IAP_META_VALID      0x444C4156UL
 #define IAP_META_OFFSET     256U
+#define FACTORY_BACKUP_MAGIC 0x42434647UL
 
 typedef struct
 {
@@ -446,10 +447,14 @@ static uint8_t ymodem_write_meta_status(uint32_t status)
     return ymodem_verify_flash_page(FLASH_UPDATE, 0, &page[0]);
 }
 
-static void ymodem_clear_meta(void)
+static uint8_t ymodem_clear_meta(void)
 {
     memset(&page, 0xFF, sizeof(page));
-    flash_write(FLASH_UPDATE, 0, (uint16_t *)&page);
+      if (flash_write(FLASH_UPDATE, 0, (uint16_t *)&page) == 0U)
+    {
+        return 0U;
+    }
+    return ymodem_verify_flash_page(FLASH_UPDATE, 0, &page[0]);
 }
 
 static uint8_t ymodem_update_page_has_data(void)
@@ -463,6 +468,14 @@ static uint8_t ymodem_update_page_has_data(void)
     }
 
     return 0U;
+}
+
+static uint8_t ymodem_update_page_is_factory_backup(void)
+{
+    uint32_t magic = 0xFFFFFFFFUL;
+
+    memcpy(&magic, &page[0], sizeof(magic));
+    return (magic == FACTORY_BACKUP_MAGIC) ? 1U : 0U;
 }
 
 static inline void ymodem_reset_rx(uint8_t rx_com)
@@ -587,6 +600,16 @@ void ymodem_init(void)
 
     if (ymodem_update_page_has_data() != 0U)
     {
+        if (ymodem_update_page_is_factory_backup() != 0U)
+        {
+            usart_link = 0;
+            updating_flag = 0;
+            update_started = 0;
+            pending_can_fallback = 0;
+            boot_jump_to_app();
+            return;
+        }
+
         if (ymodem_legacy_start_header_is_valid() != 0U)
         {
             ymodem_reset_rx(OUTPUT_USART0);
@@ -1098,6 +1121,11 @@ uint8_t boot_iap_can_begin(uint32_t image_size, uint32_t image_crc32)
         (image_size > flash_zone[FLASH_APP].size) ||
         (image_crc32 == 0U) ||
         (image_crc32 == 0xFFFFFFFFUL))
+    {
+        return 0U;
+    }
+	
+   if (ymodem_clear_meta() == 0U)
     {
         return 0U;
     }
