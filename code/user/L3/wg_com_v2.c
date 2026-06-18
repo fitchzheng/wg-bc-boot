@@ -38,7 +38,7 @@ wg_com_v2_product_info_t wg_com_v2_product_info = {
         WG_COM_V2_INIT_U16(('W' << 8) | 'G'),
         WG_COM_V2_INIT_U16(('-' << 8) | 'B'),
         WG_COM_V2_INIT_U16(('C' << 8) | '1'),
-        WG_COM_V2_INIT_U16(('5' << 8) | '0'),
+        WG_COM_V2_INIT_U16(('2' << 8) | '0'),
         WG_COM_V2_INIT_U16(('0' << 8) | 'M'),
         WG_COM_V2_INIT_U16((' ' << 8) | ' '),
         WG_COM_V2_INIT_U16((' ' << 8) | ' '),
